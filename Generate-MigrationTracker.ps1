@@ -1,7 +1,8 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Generates a consolidated migration tracker Excel workbook for managing Phase 2 migration
-    Creates Word documents using PSWriteWord for proper Word output
+    Creates Word documents using PSWriteOffice for proper Word output
     
 .DESCRIPTION
     Creates a tracking Excel workbook that combines all users needing action in Phase 2
@@ -33,14 +34,14 @@ if (Get-Module -ListAvailable -Name ImportExcel) {
 }
 
 $useWord = $false
-if (Get-Module -ListAvailable -Name PSWriteWord) {
+if (Get-Module -ListAvailable -Name PSWriteOffice) {
     try {
-        Import-Module PSWriteWord -ErrorAction Stop
+        Import-Module PSWriteOffice -ErrorAction Stop
         $useWord = $true
-        Write-Host "PSWriteWord module loaded for Word document generation" -ForegroundColor Green
+        Write-Host "PSWriteOffice module loaded for Word document generation" -ForegroundColor Green
     }
     catch {
-        Write-Warning "Failed to load PSWriteWord module: $_"
+        Write-Warning "Failed to load PSWriteOffice module: $_"
     }
 }
 
@@ -223,11 +224,17 @@ Write-Host "  Week 3-4 actions: $($stats.Week3_4) users" -ForegroundColor White
 Write-Host "  Users with NO MFA: $($stats.NoMFA) users" -ForegroundColor Red
 Write-Host "  Privileged users needing action: $($stats.Privileged) users" -ForegroundColor Yellow
 
-# Function to create Word document using PSWriteWord with stub path
+# Function to create Word document using PSWriteOffice with stub path support
 function New-TrackerWordDoc {
+    [CmdletBinding()]
     param(
+        [Parameter(Mandatory=$true)]
         [string]$Content,
+        
+        [Parameter(Mandatory=$true)]
         [string]$FilePath,
+        
+        [Parameter(Mandatory=$false)]
         [string]$Title = ""
     )
     
@@ -235,12 +242,14 @@ function New-TrackerWordDoc {
         return $false
     }
     
-    # Create a temporary stub path
+    # Create a temporary stub path for OneDrive long path support
     $timestamp = Get-Date -Format 'yyyyMMddHHmmss'
-    $stubPath = "C:\PSW_$timestamp"
+    $stubPath = "C:\PSO_$timestamp"
     $stubCreated = $false
     
     try {
+        Write-Host "Creating Word document using PSWriteOffice..." -ForegroundColor Yellow
+        
         # Get the final directory and filename
         $finalDirectory = Split-Path $FilePath -Parent
         $fileName = Split-Path $FilePath -Leaf
@@ -250,48 +259,48 @@ function New-TrackerWordDoc {
             New-Item -ItemType Directory -Path $finalDirectory -Force | Out-Null
         }
         
-        # Create junction to the target directory
+        # Create junction to the target directory for OneDrive long path support
         try {
             cmd /c mklink /J "$stubPath" "$finalDirectory" 2>&1 | Out-Null
             if (Test-Path $stubPath) {
+                Write-Host "Created junction for OneDrive long path handling" -ForegroundColor Gray
                 $stubCreated = $true
+                $workingFilePath = Join-Path $stubPath $fileName
+            } else {
+                Write-Warning "Junction creation failed, using original path"
+                $workingFilePath = $FilePath
             }
         }
         catch {
-            Write-Warning "Could not create junction, using original path"
-            $stubPath = $finalDirectory
+            Write-Warning "Could not create junction, using original path: $_"
+            $workingFilePath = $FilePath
         }
         
-        # Build the file path using stub
-        $stubFilePath = Join-Path $stubPath $fileName
-        
-        # Create Word document
-        $WordDocument = New-WordDocument $stubFilePath
+        # Create Word document using working path
+        $Document = New-OfficeWord -FilePath $workingFilePath
         
         # Add title if provided
         if ($Title) {
-            Add-WordText -WordDocument $WordDocument -Text $Title -FontSize 16 -Bold $true -SpacingAfter 15 -Color "Red" -Supress $true
+            $titleParagraph = New-OfficeWordText -Document $Document -Text $Title -Bold $true -Color Blue -Alignment Center -ReturnObject
+            $titleParagraph.FontSize = 16
+            New-OfficeWordText -Document $Document -Text ""
         }
         
         # Process content line by line
         $lines = $Content -split "`n"
         
         foreach ($line in $lines) {
-            # Skip empty lines
+            # Skip empty lines - add blank paragraph
             if ([string]::IsNullOrWhiteSpace($line)) {
-                Add-WordText -WordDocument $WordDocument -Text "" -SpacingAfter 6 -Supress $true
+                New-OfficeWordText -Document $Document -Text ""
                 continue
             }
             
-            # Section headers (lines with : at the end)
-            if ($line -match "^[A-Z][A-Z\s\d\-()]+:$" -and $line.Length -gt 5) {
-                Add-WordText -WordDocument $WordDocument -Text $line -FontSize 12 -Bold $true -SpacingBefore 10 -SpacingAfter 8 -Supress $true
-                continue
-            }
-            
-            # Headers with underlines (===)
-            if ($lines.IndexOf($line) + 1 -lt $lines.Count -and $lines[$lines.IndexOf($line) + 1] -match "^={3,}$") {
-                Add-WordText -WordDocument $WordDocument -Text $line -FontSize 14 -Bold $true -SpacingBefore 12 -SpacingAfter 12 -Supress $true
+            # Section headers (lines with underlines)
+            $lineIndex = [array]::IndexOf($lines, $line)
+            if ($lineIndex + 1 -lt $lines.Count -and $lines[$lineIndex + 1] -match "^={3,}$") {
+                $headerParagraph = New-OfficeWordText -Document $Document -Text $line -Bold $true -Color DarkBlue -ReturnObject
+                $headerParagraph.FontSize = 14
                 continue
             }
             
@@ -300,41 +309,48 @@ function New-TrackerWordDoc {
                 continue
             }
             
-            # Bullet points or list items
-            if ($line -match "^\d+\.\s+" -or $line -match "^[-•]\s+") {
-                $cleanLine = $line -replace "^\d+\.\s+", "" -replace "^[-•]\s+", ""
-                Add-WordText -WordDocument $WordDocument -Text "• $cleanLine" -SpacingAfter 6 -IndentationFirstLine 1 -Supress $true
+            # Section headers (all caps lines)
+            if ($line -match "^[A-Z][A-Z\s\d\-:()]+$" -and $line.Length -gt 10) {
+                $subHeaderParagraph = New-OfficeWordText -Document $Document -Text $line -Bold $true -Color DarkRed -ReturnObject
+                $subHeaderParagraph.FontSize = 12
                 continue
             }
             
             # User entries (lines with @ symbol)
             if ($line -match "@") {
-                Add-WordText -WordDocument $WordDocument -Text $line -FontFamily "Courier New" -FontSize 10 -SpacingAfter 3 -Supress $true
+                $userParagraph = New-OfficeWordText -Document $Document -Text $line -ReturnObject
+                $userParagraph.FontFamily = 'Courier New'
+                $userParagraph.FontSize = 10
                 continue
             }
             
             # Total/summary lines
             if ($line -match "^Total") {
-                Add-WordText -WordDocument $WordDocument -Text $line -Bold $true -SpacingBefore 8 -SpacingAfter 6 -Supress $true
+                New-OfficeWordText -Document $Document -Text $line -Bold $true -Color DarkGreen
                 continue
             }
             
             # Regular text
-            Add-WordText -WordDocument $WordDocument -Text $line -SpacingAfter 6 -Supress $true
+            New-OfficeWordText -Document $Document -Text $line
         }
         
-        Save-WordDocument -WordDocument $WordDocument -Language 'en-US'
+        # Save document
+        Save-OfficeWord -Document $Document
+        Write-Host "Word document created successfully" -ForegroundColor Green
+        
         return $true
     }
     catch {
         Write-Warning "Failed to create Word document: $_"
+        Write-Warning "Error details: $($_.Exception.Message)"
         return $false
     }
     finally {
-        # Clean up stub path
+        # Clean up stub path if created
         if ($stubCreated -and (Test-Path $stubPath)) {
             try {
                 cmd /c rmdir "$stubPath" 2>&1 | Out-Null
+                Write-Host "Cleaned up temporary junction" -ForegroundColor Gray
             }
             catch {
                 Write-Warning "Could not remove stub path: $stubPath"
@@ -367,10 +383,10 @@ Total Critical Actions: $($stats.Critical)
 RECOMMENDED IMMEDIATE ACTIONS:
 1. Contact all users with NO MFA immediately
 2. Schedule FIDO2 deployment for privileged users
-3. Begin Phase 2 preparation with automatic cleanup group
+3. Begin Phase 2 preparation with the automatic cleanup group
 "@
 
-# Create Word document for critical users
+# Create a Word document for critical users
 $wordCreated = New-TrackerWordDoc -Content $criticalContent -FilePath $criticalUsersPath -Title "CRITICAL USERS REQUIRING IMMEDIATE ACTION"
 if ($wordCreated) {
     Write-Host "Critical users list saved to: $criticalUsersPath" -ForegroundColor Red
