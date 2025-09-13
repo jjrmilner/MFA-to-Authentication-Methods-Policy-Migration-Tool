@@ -1,4 +1,3 @@
-#Requires -Version 5.1
 <#
 .SYNOPSIS
     Generates MFA assessment reports using PSWriteWord for proper Word document output
@@ -569,59 +568,112 @@ foreach ($method in $LegacyMfaData.CurrentMethodDistribution.Keys) {
 # CORRECTED REPORT CONTENT with proper dual assessment
 $reportContent = @"
 MFA TO AUTHENTICATION METHODS POLICY MIGRATION REPORT
-====================================================
-Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-Tenant: $tenantName
-Microsoft Deadline: September 30, 2025
-Time Remaining: $((New-TimeSpan -Start (Get-Date) -End (Get-Date "2025-09-30")).Days) days
+=====================================================
+Generated: $(Get-Date -Format "dddd, MMMM dd, yyyy 'at' HH:mm:ss")
+Organisation: $tenantName
+Assessment Type: Migration Impact and Security Compliance
 
-CORRECTED EXECUTIVE SUMMARY
-==========================
-Current MFA Coverage: $(if ($totalUsers -gt 0) { [math]::Round(($usersWithMfa / $totalUsers) * 100, 1) } else { 0 })% of users
+This report provides a comprehensive assessment of your organisation's readiness to migrate from Legacy MFA to Authentication Methods Policy, with clear separation between migration disruption risk and security compliance requirements.
 
-MIGRATION READINESS ASSESSMENT:
-=====================================
-[OK] Phase 1 Ready: Zero disruption expected - All current MFA users will continue working
-[OK] September 30th Deadline: Achievable without service interruption
-
-SECURITY COMPLIANCE ASSESSMENT:
-===============================
-- Users with MFA (Compliant): $usersWithMfa
-- Users without MFA: $($LegacyMfaData.RegularUsersNoMfa.Count) users $(if ($LegacyMfaData.RegularUsersNoMfa.Count -gt 0) { "[WARNING - Security Policy Gap]" } else { "[COMPLIANT]" })
-- Privileged users without MFA: $privilegedNoMfaExcludingBreakGlass $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) { "[CRITICAL - Security Violation]" } else { "[COMPLIANT]" })
-
-DETAILED ANALYSIS
+EXECUTIVE SUMMARY
 ================
-Total Users Analysed: $totalUsers
-- Service Accounts: $($LegacyMfaData.ServiceAccountUsers.Count) (No action required)
-- Regular Users with MFA: $usersWithMfa
-  - Secure methods only: $($usersWithMfa - $usersForAutomaticCleanup - $usersNeedingAssistance) [COMPLIANT]
-  - Can auto-remove insecure: $usersForAutomaticCleanup users [COMPLIANT - Enhancement available]
-  - Need method upgrade assistance: $usersNeedingAssistance users [COMPLIANT - Enhancement recommended]
 
-SECURITY POLICY COMPLIANCE
-===========================
+MIGRATION DISRUPTION ASSESSMENT: [OK] ZERO DISRUPTION EXPECTED
+-------------------------------------------------------------
+Your organisation can safely migrate to Authentication Methods Policy by the September 30, 2025 deadline with ZERO service disruption expected.
+
+Key Migration Reality:
+- Users with Current MFA: $usersWithMfa (Will continue working normally after migration)  
+- Users without MFA: $($LegacyMfaData.RegularUsersNoMfa.Count) (Will continue working exactly as they do today - no change)
+- Privileged Users: $(if ($PrivilegedData) { ($PrivilegedData.AnalyzedPrivilegedUsers | Select-Object -ExpandProperty UserPrincipalName -Unique).Count } else { 0 }) (Migration impact assessed separately)
+
+Critical Understanding: Users without MFA are not at risk of losing access during migration because they never had MFA protection to begin with. They will continue using password-only authentication exactly as they do today.
+
+SECURITY COMPLIANCE ASSESSMENT: $(if ($privilegedNoMfaExcludingBreakGlass -gt 0 -or $LegacyMfaData.RegularUsersNoMfa.Count -gt 0) { "[ACTION REQUIRED] Security Policy Gaps Identified" } else { "[OK] Full Security Compliance" })
+------------------------------------------------------------
+Separate from migration, we identified ongoing security policy compliance gaps requiring attention:
+
+$(if ($privilegedNoMfaExcludingBreakGlass -gt 0) {
+"[CRITICAL] $privilegedNoMfaExcludingBreakGlass privileged users lack MFA protection (High-value security targets)"
+} else {
+"[OK] All privileged users have MFA protection"
+})
+
 $(if ($LegacyMfaData.RegularUsersNoMfa.Count -gt 0) {
-"[WARNING] Regular users without MFA: $($LegacyMfaData.RegularUsersNoMfa.Count) users
-- These users currently access systems with password-only
-- They will continue to have password-only access after migration
-- Security policy recommends all users should have MFA protection"
+"[WARNING] $($LegacyMfaData.RegularUsersNoMfa.Count) regular users lack MFA protection (Security policy enhancement opportunity)"
 } else {
 "[OK] All regular users have MFA protection"
 })
 
+RECOMMENDATION
+-------------
+Proceed with migration immediately (zero disruption risk) whilst separately addressing security policy compliance gaps through a structured enhancement programme.
+
+CURRENT AUTHENTICATION LANDSCAPE
+===============================
+
+MFA Usage Overview:
+- Total Licensed Users: $(if ($LegacyMfaData.TotalUsers) { $LegacyMfaData.TotalUsers } else { "Data unavailable" })
+- Users with MFA Registered: $usersWithMfa ($(if ($LegacyMfaData.TotalUsers -and $LegacyMfaData.TotalUsers -gt 0) { [math]::Round(($usersWithMfa / $LegacyMfaData.TotalUsers) * 100, 1) } else { "N/A" })%)
+- Users without Any MFA: $($LegacyMfaData.RegularUsersNoMfa.Count) ($(if ($LegacyMfaData.TotalUsers -and $LegacyMfaData.TotalUsers -gt 0) { [math]::Round(($LegacyMfaData.RegularUsersNoMfa.Count / $LegacyMfaData.TotalUsers) * 100, 1) } else { "N/A" })%)
+
+Current Method Distribution:
+$(if ($LegacyMfaData.MethodStats) { $LegacyMfaData.MethodStats | ForEach-Object { "- $($_.Method): $($_.Count) users" } } else { "Method statistics not available" })
+
+Authentication Policy Status:
+- Current Policy: $($CurrentPolicy.PolicyType)
+- Available Methods: $(if ($CurrentPolicy.EnabledMethods) { $CurrentPolicy.EnabledMethods -join ", " } else { "Not specified" })
+- Tenant Default: $(if ($CurrentPolicy.IsDefault) { "Yes" } else { "No" })
+
+Migration Impact Analysis:
+$(if ($methodsNeedingEnable.Count -gt 0) {
+"[ACTION REQUIRED] Enable these methods in the new policy:
+$($methodsNeedingEnable | ForEach-Object { "- $_" } | Out-String)"
+} else {
+"[OK] All required methods are already enabled in the target policy"
+})
+
+DETAILED SECURITY COMPLIANCE ANALYSIS
+====================================
+
+Regular User Security Posture:
+$(if ($LegacyMfaData.RegularUsersNoMfa.Count -gt 0) {
+"[WARNING] SECURITY POLICY ENHANCEMENT OPPORTUNITY:
+- $($LegacyMfaData.RegularUsersNoMfa.Count) users currently have no MFA protection
+- These users rely solely on password authentication (current state - no change during migration)
+- Represents ongoing security enhancement opportunity
+- Every user should have MFA per security best practices
+- Note: These users will continue working normally - this is a security improvement initiative, not a migration blocker"
+} else {
+"[OK] All regular users have MFA protection"
+})
+
+User Enhancement Opportunities:
+$(if ($usersNeedingAssistance -gt 0) {
+"[ENHANCEMENT] MFA Method Improvement Opportunity:
+- $usersNeedingAssistance users currently have only less secure methods (SMS/Voice/Email)
+- Should upgrade to Microsoft Authenticator for better security
+- Current methods will continue working during and after migration with no disruption
+- This is a security enhancement opportunity, not a migration requirement"
+} else {
+"[OK] All users with MFA have secure authentication methods"
+})
+
+Privileged User Security Analysis:
 $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) {
-"[CRITICAL] Privileged users without MFA: $privilegedNoMfaExcludingBreakGlass users  
-- These administrator accounts currently lack MFA protection
-- This represents a critical security vulnerability
-- All privileged accounts must have MFA per security policy"
+"[CRITICAL] SECURITY COMPLIANCE VIOLATION:
+- $privilegedNoMfaExcludingBreakGlass privileged users lack MFA protection
+- These are HIGH-VALUE TARGETS requiring immediate security attention
+- Represents ongoing organisational security compliance risk
+- All privileged accounts must have MFA per security policy
+- Note: Migration can proceed safely, but this security gap requires urgent attention"
 } else {
 "[OK] All privileged users have MFA protection"
 })
 
 Privileged User Security Details:
 - Total Privileged Users: $(if ($PrivilegedData) { ($PrivilegedData.AnalyzedPrivilegedUsers | Select-Object -ExpandProperty UserPrincipalName -Unique).Count } else { 0 })
-- Without Any MFA: $privilegedNoMfaExcludingBreakGlass $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) { "[CRITICAL - Security Violation]" } else { "[COMPLIANT]" })
+- Without Any MFA: $privilegedNoMfaExcludingBreakGlass $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) { "[CRITICAL - Security Compliance Violation]" } else { "[COMPLIANT]" })
 - Without FIDO2: $privilegedNoFido $(if ($privilegedNoFido -gt 0) { "[Enhancement Opportunity]" } else { "[SECURE]" })
 - Managed Break-Glass: $(($PrivilegedData.AnalyzedPrivilegedUsers | Where-Object { $_.UserPrincipalName -in $breakGlassAccounts } | Select-Object -ExpandProperty UserPrincipalName -Unique).Count) (Will configure during migration)
 
@@ -630,54 +682,57 @@ DUAL TIMELINE ASSESSMENT
 
 MIGRATION TIMELINE (September 30, 2025 Deadline)
 ----------------------------------------------
-[OK] ZERO DISRUPTION EXPECTED
-- All $usersWithMfa users with current MFA will continue working normally
-- $($LegacyMfaData.RegularUsersNoMfa.Count) users without MFA will continue working exactly as they do today
-- No service interruptions anticipated
-- September 30th deadline is achievable
+[OK] ZERO DISRUPTION EXPECTED - MIGRATION CAN PROCEED SAFELY
+- All $usersWithMfa users with current MFA will continue working normally after migration
+- $($LegacyMfaData.RegularUsersNoMfa.Count) users without MFA will continue working exactly as they do today (password-only, no change)
+- No users will lose access they currently have
+- September 30th deadline is fully achievable with no service interruptions
 
-SECURITY COMPLIANCE TIMELINE (Ongoing Organizational Requirement)
----------------------------------------------------------------
+SECURITY COMPLIANCE TIMELINE (Ongoing Organisational Security Policy)
+--------------------------------------------------------------------
 $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) {
-"[CRITICAL] PRIVILEGED USER SECURITY VIOLATIONS:
-- $privilegedNoMfaExcludingBreakGlass privileged users lack MFA protection
-- These are HIGH-VALUE TARGETS that must be protected
-- Represents immediate organizational security risk
-- Recommended action: Implement MFA for all privileged accounts within 30 days"
+"[CRITICAL] PRIVILEGED USER SECURITY COMPLIANCE GAPS:
+- $privilegedNoMfaExcludingBreakGlass privileged users currently lack MFA protection
+- These are HIGH-VALUE SECURITY TARGETS requiring policy compliance attention
+- Represents ongoing organisational security policy violation
+- Recommended action: Implement MFA for all privileged accounts within 30 days
+- Note: This is a security compliance issue, separate from migration safety"
 } else {
-"[OK] PRIVILEGED USERS: All protected with MFA"
+"[OK] PRIVILEGED USERS: All compliant with MFA security policy"
 })
 
 $(if ($LegacyMfaData.RegularUsersNoMfa.Count -gt 0) {
-"[WARNING] SECURITY POLICY GAPS:
-- $($LegacyMfaData.RegularUsersNoMfa.Count) regular users lack MFA protection
+"[WARNING] REGULAR USER SECURITY POLICY ENHANCEMENT OPPORTUNITIES:
+- $($LegacyMfaData.RegularUsersNoMfa.Count) regular users currently lack MFA protection
 - Every user should have MFA per security best practices
-- Represents moderate organizational security risk  
-- Recommended action: Implement MFA for all users within 90 days"
+- Represents ongoing organisational security enhancement opportunity  
+- Recommended action: Implement MFA for all users within 90 days as security improvement initiative
+- Note: This is a security enhancement opportunity, separate from migration requirements"
 } else {
 "[OK] REGULAR USERS: All protected with MFA"
 })
 
-KEY DISTINCTION
---------------
-- Migration Timeline: No urgency - zero disruption expected for September 30th deadline
-- Security Compliance: Ongoing concern requiring attention per organizational security policy
-- These are separate issues with different timelines and priorities
+KEY DISTINCTION - CRITICAL UNDERSTANDING
+---------------------------------------
+- Migration Disruption Risk: ZERO - Users will continue working exactly as they do today
+- Security Policy Compliance: Separate ongoing issue requiring attention per organisational security policy
+- Migration Success ≠ Security Policy Compliance (these are different objectives with different timelines)
+- Users without MFA are not migration risks - they are security policy enhancement opportunities
 
-OUR TWO-PHASE MIGRATION APPROACH
-================================
-We will manage your migration in two phases to ensure zero disruption while maintaining security standards.
+OUR TWO-PHASE APPROACH
+======================
+We will manage your transition in two phases to ensure zero disruption whilst maintaining security standards.
 
-PHASE 1: MEET THE DEADLINE - PREVENT DISRUPTION (By September 30, 2025)
+PHASE 1: MIGRATION COMPLIANCE - ZERO DISRUPTION (By September 30, 2025)
 -----------------------------------------------------------------------
 Time: 1-2 days
-Target: Zero disruption for users who currently have MFA
+Target: Meet Microsoft deadline with zero service disruption
 
-[OK] WHAT WILL WORK:
+[OK] GUARANTEED OUTCOMES:
 - All $usersWithMfa users with current MFA will continue accessing systems normally
-- Users without MFA will continue working exactly as they do today (password-only)
-- No users will be locked out or lose access they currently have
-- September 30th deadline compliance achieved
+- All users without MFA will continue working exactly as they do today (password-only access unchanged)
+- No users will be locked out or lose any access they currently have
+- September 30th deadline compliance achieved with zero service interruptions
 
 What We Will Do:
 - Enable ALL currently used authentication methods in the new policy:
@@ -689,110 +744,114 @@ $methodsNeedingEnable | ForEach-Object { "  - Enable $_" }
 ""
 })
 $(if ($methodsAlreadyEnabled.Count -gt 0) {
-"Methods already enabled:
+"Methods already enabled and ready:
 $($methodsAlreadyEnabled | ForEach-Object { "  - $_" })
 "
 })
 - Migrate policy management to new Authentication Methods Policy interface
-- Test that all current MFA users can continue authenticating
-- Document any users who don't currently have MFA (for optional Phase 2 security enhancement)
+- Test that all current MFA users can continue authenticating without issues
+- Document users currently without MFA (for optional Phase 2 security enhancement)
+- Complete migration with zero disruption
 
 SUCCESS CRITERIA:
 - Zero user complaints about lost access
 - All current MFA users continue working normally  
-- Users without MFA continue working as they always have
-- Compliance with Microsoft deadline achieved
+- All users without MFA continue working as they always have (no change)
+- Full compliance with Microsoft deadline achieved
 
-PHASE 2: SECURITY ENHANCEMENT (4-6 weeks after Phase 1)
--------------------------------------------------------
+PHASE 2: SECURITY ENHANCEMENT PROGRAMME (4-6 weeks after Phase 1)
+-----------------------------------------------------------------
 Time: 4-6 weeks
-Focus: Improve security posture and address policy gaps
+Focus: Improve security posture and address ongoing policy compliance gaps
 
 Week 1-2: Automatic Security Improvements
-- Automatically remove insecure methods for $usersForAutomaticCleanup users
-  (These users already have secure alternatives registered)
-- No user action needed for this group
+- Automatically remove less secure methods for $usersForAutomaticCleanup users
+  (These users already have secure alternatives registered - no user action needed)
+- Maintain service continuity throughout improvements
 
-Week 3-4: Security Gap Remediation
+Week 3-4: Security Gap Remediation Programme
 $(if ($usersNeedingAssistance -gt 0) {
-"- Work with $usersNeedingAssistance users to register Microsoft Authenticator
-- Provide training and support materials
-- Track progress and follow up"
+"- Work with $usersNeedingAssistance users to upgrade to Microsoft Authenticator
+- Provide training and support materials for security enhancement
+- Track progress and provide follow-up assistance"
 } else {
-"- No users need assistance - all have secure methods"
+"- No users need assistance - all already have secure methods"
 })
 
 $(if ($LegacyMfaData.RegularUsersNoMfa.Count -gt 0) {
-"- Address security policy gap: $($LegacyMfaData.RegularUsersNoMfa.Count) users without any MFA
-- Register Microsoft Authenticator for improved security
-- Priority based on user roles and access levels"
+"- Address security policy enhancement opportunity: $($LegacyMfaData.RegularUsersNoMfa.Count) users without any MFA
+- Register Microsoft Authenticator to improve organisational security posture
+- Priority based on user roles and access levels
+- Voluntary security enhancement programme"
 } else {
-"- No security gaps to address - all users have MFA"
+"- No security gaps to address - all users already have MFA"
 })
 
 Week 5-6: Privileged User Security Enhancement
 $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) {
-"- PRIORITY: Register MFA for $privilegedNoMfaExcludingBreakGlass privileged users (Critical security gap)
-- Deploy FIDO2 security keys to $privilegedNoFido administrators (Recommended)
-- Configure phishing-resistant MFA requirements
-- Create conditional access policies for admin protection"
+"- PRIORITY: Register MFA for $privilegedNoMfaExcludingBreakGlass privileged users (Critical security policy compliance)
+- Deploy FIDO2 security keys to $privilegedNoFido administrators (Recommended security enhancement)
+- Configure phishing-resistant MFA requirements for high-value targets
+- Create conditional access policies for administrator protection"
 } else {
-"- Deploy FIDO2 security keys to $privilegedNoFido administrators (Optional enhancement)  
+"- Deploy FIDO2 security keys to $privilegedNoFido administrators (Optional security enhancement)  
 - Configure phishing-resistant MFA requirements
-- Create conditional access policies for admin protection"
+- Create conditional access policies for administrator protection"
 })
 
-Final Step: Remove Insecure Methods
-- Remove Voice, SMS, and Email from the authentication policy
-- Monitor for any issues
-- Maintain exceptions only where absolutely necessary
+Final Step: Remove Less Secure Methods (Optional)
+- Remove Voice, SMS, and Email from the authentication policy (security hardening)
+- Monitor for any issues during security hardening phase
+- Maintain exceptions only where absolutely necessary for business continuity
 
 GENERATED REPORTS
 ================
 Location: $reportFolder
 
-[DATA] User Details and Phase 2 Actions: $(Split-Path $excelPath -Leaf)
-- Complete user list with current methods
-- Migration impact assessment per user
-- Security compliance status per user  
-- Use for project planning and tracking
-- Enhanced with dual assessment (migration vs security)
+[DATA] User Details and Security Enhancement Planning: $(Split-Path $excelPath -Leaf)
+- Complete user list with current authentication methods
+- Migration impact assessment per user (spoiler: zero impact expected)
+- Security compliance status per user for enhancement planning
+- Use for project planning and security improvement tracking
+- Clear separation between migration safety and security enhancement opportunities
 
-$(if ($privExcelPath) { "[SECURITY] Privileged User Security: $(Split-Path $privExcelPath -Leaf)
-- Administrator account analysis
-- Risk assessment and FIDO2 recommendations
-- Critical security gap identification
+$(if ($privExcelPath) { "[SECURITY] Privileged User Security Analysis: $(Split-Path $privExcelPath -Leaf)
+- Administrator account security analysis
+- Risk assessment and FIDO2 security enhancement recommendations
+- Critical security policy compliance gap identification
 " })
-[REPORT] Migration Report: $(Split-Path $reportPath -Leaf)
+[REPORT] Migration and Security Assessment Report: $(Split-Path $reportPath -Leaf)
 - This comprehensive assessment report
 - Executive summary and recommendations
-- Phase-by-phase implementation plan
+- Phase-by-phase implementation plan with clear risk/enhancement separation
 
 NEXT STEPS
 ==========
 1. IMMEDIATE (This Week):
    $(if ($privilegedNoMfaExcludingBreakGlass -gt 0) {
-   "   [CRITICAL] Address $privilegedNoMfaExcludingBreakGlass privileged users without MFA (security violation)"
+   "   [CRITICAL] Address $privilegedNoMfaExcludingBreakGlass privileged users without MFA (security policy compliance violation)"
    } else {
-   "   [OK] No critical security issues requiring immediate attention"
+   "   [OK] No critical security policy violations requiring immediate attention"
    })
 
 2. MIGRATION PREPARATION (Next 2 Weeks):
-   - Review and approve Phase 1 plan (zero disruption expected)
+   - Review and approve Phase 1 plan (zero disruption guaranteed)
    - Schedule policy migration for before September 30, 2025
-   - Prepare communications for Phase 2 security enhancements
+   - Prepare communications about upcoming security enhancement opportunities
 
-3. POST-MIGRATION SECURITY ENHANCEMENT (Optional):
+3. POST-MIGRATION SECURITY ENHANCEMENT PROGRAMME (Optional but Recommended):
    $(if ($LegacyMfaData.RegularUsersNoMfa.Count -gt 0 -or $usersNeedingAssistance -gt 0) {
    "   - Plan security improvement campaign for $($LegacyMfaData.RegularUsersNoMfa.Count + $usersNeedingAssistance) users
-   - Develop user training and support materials
-   - Schedule assisted MFA registration sessions"
+   - Develop user training and support materials for security enhancements
+   - Schedule assisted MFA registration sessions as voluntary security improvement"
    } else {
    "   - All users already have secure MFA methods
-   - Focus on FIDO2 deployment for administrators"
+   - Focus on FIDO2 deployment for administrators as optional security enhancement"
    })
 
-This assessment confirms that your migration can proceed safely with zero disruption while clearly identifying opportunities for security enhancement.
+CONCLUSION
+=========
+Your migration can proceed with complete confidence - zero disruption is expected because users without MFA will continue working exactly as they do today (they never had MFA protection to lose). The identified security opportunities are separate enhancement initiatives to improve your overall security posture in line with organisational policy, not migration blockers.
 "@
 
 # Create Word document using exact working function from backup
