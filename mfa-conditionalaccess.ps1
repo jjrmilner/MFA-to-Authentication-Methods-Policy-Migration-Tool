@@ -1,6 +1,14 @@
-<#
+<# SPDX-License-Identifier: Apache-2.0 WITH Commons-Clause
+# Copyright (c) 2025 Global Micro Solutions (Pty) Ltd
+# All rights reserved
+
+.WARRANTY
+    Distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
+    either express or implied. See the Apache-2.0 WITH Commons-Clause License for the specific language
+    governing permissions and limitations under the License.
+
 .SYNOPSIS
-    Analyzes Conditional Access policies requiring MFA using REST API
+    Analyses Conditional Access policies requiring MFA using REST API
 #>
 
 Write-Host "`n=== CONDITIONAL ACCESS MFA POLICIES ===" -ForegroundColor Cyan
