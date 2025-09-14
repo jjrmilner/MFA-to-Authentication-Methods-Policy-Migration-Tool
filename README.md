@@ -223,7 +223,9 @@ Read the full story behind this tool: [Meeting Customers Where They Are: A Pragm
 - **Discussions**: Use GitHub Discussions for questions and community support
 - **Professional Services**: Contact for enterprise consulting and customisation
 
-**License:** Apache 2.0 (see LICENSE)  
+---
+
+## 📄 **License:** Apache 2.0 (see LICENSE)  
 **Additional restriction:** Commons Clause (see COMMONS-CLAUSE.txt)
 
 **SPDX headers**
@@ -249,6 +251,14 @@ Contact Global Micro Solutions (Pty) Ltd at:
 ## ⚠️ Warranty Disclaimer
 
 Distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. Please review the Apache-2.0 WITH Commons-Clause License for the specific language governing permissions and limitations under the License.
+
+## Author
+
+**JJ Milner**  
+Blog: https://jjrmilner.substack.com
+Github: https://github.com/jjrmilner
+
+---
 
 ## 🙏 Acknowledgments
 
