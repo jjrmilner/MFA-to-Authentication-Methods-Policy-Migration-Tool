@@ -248,6 +248,8 @@ The Commons Clause removes the right to “Sell,” which includes providing a s
 Contact Global Micro Solutions (Pty) Ltd at:  
 📧 licensing@globalmicro.co.za
 
+---
+
 ## ⚠️ Warranty Disclaimer
 
 Distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. Please review the Apache-2.0 WITH Commons-Clause License for the specific language governing permissions and limitations under the License.
